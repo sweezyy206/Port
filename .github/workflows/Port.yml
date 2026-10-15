@@ -42,14 +42,15 @@ jobs:
           remove-android: "true"
           remove-haskell: "true"
 
-      - name: "🧰 Install Port Tools & Extractors"
+      - name: "🧰 Install Port Tools & Python Dependencies"
         run: |
           sudo killall apt apt-get || true
           sudo rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*
           sudo apt-get update --fix-missing || true
           DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --fix-broken --no-install-recommends \
-            aria2 p7zip-full python3 python3-pip python3-bs4 brotli zstd wget curl erofs-utils android-sdk-libsparse-utils
-          pip3 install --break-system-packages protobuf docopt humanize urllib3 beautifulsoup4 bs4 || pip3 install protobuf docopt humanize urllib3 beautifulsoup4 bs4
+            aria2 p7zip-full python3 python3-pip python3-bs4 python3-protobuf brotli zstd wget curl erofs-utils android-sdk-libsparse-utils
+          python3 -m pip install --upgrade pip --break-system-packages || true
+          python3 -m pip install --break-system-packages protobuf docopt humanize urllib3 beautifulsoup4 bs4 || true
           git clone https://github.com/vm03/payload_dumper.git payload_dumper_tool
 
       - name: "📥 Download Base & Port ROMs"
