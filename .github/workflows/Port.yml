@@ -44,9 +44,12 @@ jobs:
 
       - name: "🧰 Install Port Tools & Extractors"
         run: |
-          sudo apt-get update
-          sudo apt-get install -y aria2 p7zip-full python3 python3-pip brotli zstd wget curl erofs-utils android-sdk-libsparse-utils
-          pip3 install protobuf docopt humanize urllib3
+          sudo killall apt apt-get || true
+          sudo rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*
+          sudo apt-get update --fix-missing || true
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --fix-broken --no-install-recommends \
+            aria2 p7zip-full python3 python3-pip brotli zstd wget curl erofs-utils android-sdk-libsparse-utils
+          pip3 install --break-system-packages protobuf docopt humanize urllib3 || pip3 install protobuf docopt humanize urllib3
           git clone https://github.com/vm03/payload_dumper.git payload_dumper_tool
 
       - name: "📥 Download Base & Port ROMs"
@@ -70,7 +73,6 @@ jobs:
           fi
           
           cd ../extracted/base
-          # Handle payload.bin if exists
           if [ -f payload.bin ]; then
             echo "Extracting payload.bin..."
             python3 ../../../payload_dumper_tool/payload_dumper.py payload.bin --out ../unpacked_system/
@@ -81,19 +83,16 @@ jobs:
           echo "Applying Ginkgo device_features & configs..."
           mkdir -p workspace/extracted/unpacked_system/product/etc/device_features/
           
-          # Add ginkgo.xml
           if [ -f workspace/extracted/port/ginkgo.xml ]; then
             cp workspace/extracted/port/ginkgo.xml workspace/extracted/unpacked_system/product/etc/device_features/ginkgo.xml
           else
             echo '<features><bool name="support_companion">true</bool></features>' > workspace/extracted/unpacked_system/product/etc/device_features/ginkgo.xml
           fi
 
-          # Debloat unwanted product apps
           echo "Debloating unused apps..."
           rm -rf workspace/extracted/unpacked_system/product/app/AnalyticsCore 2>/dev/null || true
           rm -rf workspace/extracted/unpacked_system/product/app/MSA 2>/dev/null || true
 
-          # Modify build.prop
           echo "# Sweezyy Ginkgo Port Property" >> workspace/extracted/unpacked_system/system/build.prop || true
           echo "ro.product.device=ginkgo" >> workspace/extracted/unpacked_system/system/build.prop || true
 
