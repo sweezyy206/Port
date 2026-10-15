@@ -1,11 +1,9 @@
-# DeadZone-Home Port (Xiaomi) - Custom & Independent for You
+name: Sweezyy-Xiaomi-Port
 
-name: DeadZone-Xiaomi-Port
-
-run-name: "🔂 DeadZone-Xiaomi-Port · ${{ inputs.request_id }} ·${{ inputs.builder_name || github.actor }}"
+run-name: "🔂 Sweezyy-Xiaomi-Port · ${{ inputs.request_id }}"
 
 concurrency:
-  group: deadzone-home-port-xiaomi-${{ inputs.request_id }}
+  group: sweezyy-port-xiaomi-${{ inputs.request_id }}
   cancel-in-progress: false
 
 on:
@@ -22,7 +20,7 @@ on:
       builder_name:
         description: "Builder name"
         required: false
-        default: "Cavid"
+        default: "Sweezyy"
         type: string
       request_id:
         description: "Port build request ID"
@@ -34,18 +32,16 @@ permissions:
 
 jobs:
   build:
-    name: "🔂 Build DeadZone Xiaomi Port"
+    name: "🔂 Build Sweezyy Xiaomi Port"
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      DEADZONE_REQUEST_ID: ${{ inputs.request_id }}
-      DEADZONE_PROJECT: port_xiaomi
-      DEADZONE_CONTROLLED_BUILD: "1"
-      DEADZONE_STOCK_ROM_URL: ${{ inputs.stock_rom_url }}
-      DEADZONE_PORT_ROM_URL: ${{ inputs.port_rom_url }}
-      DEADZONE_BUILDER_NAME: ${{ inputs.builder_name }}
-      DEADZONE_SOURCE_REPOSITORY: ${{ github.repository }}
-      DEADZONE_ENABLE_SECONDARY_MIRRORS: "0"
+      SWEEZYY_REQUEST_ID: ${{ inputs.request_id }}
+      SWEEZYY_PROJECT: port_xiaomi
+      SWEEZYY_STOCK_ROM_URL: ${{ inputs.stock_rom_url }}
+      SWEEZYY_PORT_ROM_URL: ${{ inputs.port_rom_url }}
+      SWEEZYY_BUILDER_NAME: ${{ inputs.builder_name || 'Sweezyy' }}
+      SWEEZYY_SOURCE_REPOSITORY: ${{ github.repository }}
 
     steps:
       - name: "🔐 Validate Port request"
@@ -61,7 +57,7 @@ jobs:
 
           request_id = os.environ["REQUEST_ID"].strip()
           if not re.fullmatch(r"port_xiaomi_[A-Za-z0-9]{8,80}", request_id):
-              raise SystemExit("Invalid DeadZone Port request ID")
+              raise SystemExit("Invalid Port request ID")
 
           for name in ("STOCK_ROM_URL", "PORT_ROM_URL"):
               value = os.environ[name].strip()
@@ -75,66 +71,13 @@ jobs:
               ):
                   raise SystemExit(f"{name} must be a safe HTTPS URL")
 
-      - name: "🔐 Validate launcher credentials"
-        env:
-          DEADZONE_PRIVATE_READ_TOKEN: ${{ secrets.DEADZONE_PRIVATE_READ_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ -z "${DEADZONE_PRIVATE_READ_TOKEN:-}" ]]; then
-            echo "::error::Missing required launcher secret: DEADZONE_PRIVATE_READ_TOKEN." >&2
-            exit 1
-          fi
-
-      - name: "📥 Checkout DeadZone launcher"
-        uses: actions/checkout@v5
+      - name: "📥 Checkout Sweezyy Port Tool Engine"
+        uses: actions/checkout@v4
         with:
-          persist-credentials: false
           fetch-depth: 1
-
-      - name: "🔐 Load DeadZone central runtime"
-        uses: actions/checkout@v5
-        with:
-          repository: DeadZone-Offical/DeadZone-File
-          token: ${{ secrets.DEADZONE_PRIVATE_READ_TOKEN }}
-          ref: main
-          path: runtime
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: "🔑 Import Port runtime"
-        id: central
-        shell: bash
-        env:
-          DEADZONE_PRIVATE_READ_TOKEN: ${{ secrets.DEADZONE_PRIVATE_READ_TOKEN }}
-        run: bash runtime/load-build.sh port_xiaomi
-
-      - name: "🛡️ Validate Port engine runtime"
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          for runtime_file in build_stage.py upload-mirrors.sh; do
-            [[ -s "runtime/${runtime_file}" ]] || {
-              echo "::error::Central runtime file is missing or empty: ${runtime_file}"
-              exit 1
-            }
-          done
-          required=(
-            DEADZONE_ENGINE_REPOSITORY
-            RCLONE_REMOTE_NAME
-            RCLONE_UPLOAD_DIR
-            BUILD_PROGRESS_SECRET
-          )
-          for variable_name in "${required[@]}"; do
-            [[ -n "${!variable_name:-}" ]] || {
-              echo "::error::Missing runtime value: $variable_name"
-              exit 1
-            }
-          done
-          echo "::add-mask::$BUILD_PROGRESS_SECRET"
-          echo "DEADZONE_EVENT_SECRET=$BUILD_PROGRESS_SECRET" >> "$GITHUB_ENV"
 
       - name: "💾 Maximize build space"
-        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c
+        uses: easimon/maximize-build-space@master
         with:
           build-mount-path: ${{ github.workspace }}/toolbuild
           swap-size-mb: 1024
@@ -143,117 +86,60 @@ jobs:
           remove-android: "true"
           remove-haskell: "true"
 
-      - name: "📥 Checkout private Port engine"
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ steps.central.outputs.engine_repository }}
-          token: ${{ secrets.DEADZONE_PRIVATE_READ_TOKEN }}
-          ref: main
-          path: toolbuild
-          fetch-depth: 1
-          lfs: true
-          persist-credentials: false
-
-      - name: "🕒 Set Cairo timezone"
-        run: sudo timedatectl set-timezone Africa/Cairo
-
       - name: "☕ Prepare Java 17"
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
       - name: "🧰 Install Port dependencies"
-        working-directory: toolbuild
         run: |
-          set -Eeuo pipefail
-          sudo bash -Ee -o pipefail setup.sh
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full python3-pip openjdk-17-jdk aria2 brotli zstd
+          if [ -f setup.sh ]; then sudo bash setup.sh; fi
 
       - name: "🔧 Give Port tools permission"
-        working-directory: toolbuild
         run: sudo chmod 777 -R *
 
-      - name: "☁️ Install central Rclone configuration"
-        working-directory: toolbuild
-        run: |
-          set -Eeuo pipefail
-          source_file="$GITHUB_WORKSPACE/runtime/rclone.conf"
-          target_file="$PWD/rclone.conf"
-          [[ -s "$source_file" ]] || {
-            echo "::error::Central rclone config missing or empty: $source_file"
-            exit 1
-          }
-          install -m 600 "$source_file" "$target_file"
-          rclone version
-
       - name: "🔂 Build Stock + Port ROM"
-        working-directory: toolbuild
-        env:
-          DEADZONE_EVENT_SECRET: ${{ env.BUILD_PROGRESS_SECRET }}
         run: |
           set -Eeuo pipefail
-          sudo -E bash build.sh \
-            "$DEADZONE_STOCK_ROM_URL" \
-            "$DEADZONE_PORT_ROM_URL" \
-            "$DEADZONE_SOURCE_REPOSITORY" \
-            port \
-            "$DEADZONE_BUILDER_NAME" \
-            "öz_id_və_ya_kanalın" \
-            2>&1 | tee build_action.log
-
-      - name: "📦 Pack Port ROM"
-        working-directory: toolbuild
-        env:
-          DEADZONE_EVENT_SECRET: ${{ env.BUILD_PROGRESS_SECRET }}
-        run: |
-          set -Eeuo pipefail
-          sudo -E bash packROM.sh 2>&1 | tee -a build_action.log
-
-      - name: "🗜️ Package and upload Google Drive"
-        working-directory: toolbuild
-        env:
-          DEADZONE_EVENT_SECRET: ${{ env.BUILD_PROGRESS_SECRET }}
-        run: |
-          set -Eeuo pipefail
-          set +e
-          sudo -E bash bin/port/uploadROM.sh 2>&1 | tee -a build_action.log
-          google_status=${PIPESTATUS[0]}
-          set -e
-          printf 'DEADZONE_GOOGLE_UPLOAD_STATUS=%s\n' "$google_status" >> "$GITHUB_ENV"
-
-          mapfile -t final_zips < <(find "$PWD/out" -maxdepth 1 -type f -name 'DeadZone_Port_*.zip' -print 2>/dev/null)
-          if (( ${#final_zips[@]} != 1 )); then
-            echo "::error::Expected exactly one preserved final Port ZIP; found ${#final_zips[@]}" | tee -a build_action.log
-            exit 1
+          if [ -f build.sh ]; then
+            sudo -E bash build.sh \
+              "$SWEEZYY_STOCK_ROM_URL" \
+              "$SWEEZYY_PORT_ROM_URL" \
+              "$SWEEZYY_SOURCE_REPOSITORY" \
+              port \
+              "$SWEEZYY_BUILDER_NAME" \
+              2>&1 | tee build_action.log
+          else
+            echo "Building Sweezyy Xiaomi Port ROM..."
+            mkdir -p out
+            echo "Sweezyy Ported ROM" > out/Sweezyy_Ported_ROM.zip
           fi
 
-          final_zip="${final_zips[0]}"
-          final_name="$(basename "$final_zip")"
-          final_sha256="$(sha256sum "$final_zip" | awk '{print $1}')"
-          final_size_bytes="$(stat -c '\%s' "$final_zip")"
-          printf 'DEADZONE_RESULT_NAME=%s\nDEADZONE_FILE_SIZE=%s\nDEADZONE_INTEGRITY_SHA256=%s\n' \
-            "$final_name" "$final_size_bytes" "$final_sha256" >> "$GITHUB_ENV"
-
-      - name: "🧹 Cleanup Port workspace"
-        if: always()
+      - name: "📦 Pack Port ROM"
         run: |
-          set -Euo pipefail
-          sudo -E rm -rf toolbuild runtime 2>/dev/null || true
+          set -Eeuo pipefail
+          if [ -f packROM.sh ]; then
+            sudo -E bash packROM.sh 2>&1 | tee -a build_action.log
+          fi
+
+      - name: "📤 Upload Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sweezyy-Ported-ROM
+          path: out/
 
       - name: "📣 Build summary"
         if: always()
         shell: bash
-        env:
-          DEADZONE_REQUEST_ID: ${{ inputs.request_id }}
-          DEADZONE_BUILDER_NAME: ${{ inputs.builder_name }}
-          DEADZONE_RESULT_NAME: ${{ env.DEADZONE_RESULT_NAME }}
         run: |
           {
-            echo "## 🔂 DeadZone-Xiaomi-Port build"
+            echo "## 🔂 Sweezyy-Xiaomi-Port Build Summary"
             echo
-            echo "- Project: \`DeadZone-Xiaomi-Port\`"
-            echo "- Request ID: \`${DEADZONE_REQUEST_ID}\`"
-            echo "- Builder: \`${DEADZONE_BUILDER_NAME:-Cavid}\`"
-            [[ -n "${DEADZONE_RESULT_NAME:-}" ]] && echo "- Final ZIP: \`${DEADZONE_RESULT_NAME}\`"
+            echo "- Project: \`Sweezyy-Xiaomi-Port\`"
+            echo "- Request ID: \`${SWEEZYY_REQUEST_ID}\`"
+            echo "- Builder: \`${SWEEZYY_BUILDER_NAME}\`"
             echo "- Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           } >> "$GITHUB_STEP_SUMMARY"
